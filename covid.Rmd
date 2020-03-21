@@ -1,0 +1,198 @@
+---
+title: "Covid"
+author: "Briody"
+date: "3/14/2020"
+output: html_document
+---
+
+
+
+
+```{r setup, include=FALSE}
+#install.packages("showtext")
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=8, fig.height=5) 
+library(tidyverse)
+cbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7", "#F0E442")
+theme_set(theme_minimal())
+plot.title.position = "plot"
+covid <- readr::read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
+
+covid[covid$`3/18/20` == 162, '3/18/20'] <- 288 #replace wrong number
+#covid$`3/18/20`[111] <- 288
+```
+
+## Change format from data table to each line is a case.
+```{r}
+covid_long <- gather(covid, date, confirmed, contains("/20"))
+#covid_long <- gather(covid, date, confirmed, `1/22/20`:`3/15/20`)
+covid_long$date <- as.Date(covid_long$date, "%m/%d/%y")
+#Below is after r is updated?
+#covid %>% 
+#  pivot_longer(c(`1/22/20`, `1/22/20`), names_to = "date", values_to = "diagnosed")
+```
+
+## Cook County 
+```{r}
+covid_cook <- filter(covid_long, `Province/State` == "Cook County, IL")
+p <- ggplot(covid_cook, aes(x = date, y = confirmed)) + 
+  geom_point() + 
+  xlab("")
+p + scale_x_date(date_labels = "%d") 
+# csv file stopped updating Cook county numbers.
+```
+
+
+## Illinois
+```{r}
+covid_IL <- filter(covid_long, `Province/State` == "Illinois")
+covid_IL
+```
+
+```{r}
+p <- ggplot(covid_IL, aes(x = date, y = confirmed)) + 
+  geom_point() + 
+  xlab("") 
+p + scale_x_date(date_labels = "%d") 
+```
+
+## California
+```{r}
+covid_CAL <- filter(covid_long, `Province/State` == "California")
+covid_CAL
+```
+
+```{r}
+p <- ggplot(covid_CAL, aes(x = date, y = confirmed)) + 
+  geom_point() + 
+  xlab("") 
+p + scale_x_date(date_labels = "%d") 
+```
+
+## Why we need logs
+First subset selected European countries.
+```{r}
+europe <- c("France", "Germany", "Italy",  "Poland", "Spain",  "Switzerland", "United Kingdom")
+covid_euro <- filter(covid_long, `Country/Region` %in% europe & `Province/State` %in% c(europe,NA), date > as.Date('2020-01-25') & date < as.Date('2020-03-10'))
+covid_euro
+```
+
+Next, plot:
+```{r}
+p <- ggplot(covid_euro, aes(x = date, y = confirmed)) + 
+  geom_point(aes(shape = covid_euro$`Country/Region`, color = covid_euro$`Country/Region`)) + 
+  labs(x="", y = "Confirmed", shape = "Country", 
+       title = "Confirmed COVID-19 Cases", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") +
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d")
+ggsave("log1.png")
+```
+
+Now, log the values.
+```{r}
+covid_euro_log <- covid_euro %>% 
+  mutate(log_confirmed = log(confirmed+1,10)) #the +1 avoids log(0) which doesn't exist
+```
+Plot log(confirmed) for each day.
+```{r}
+p <- ggplot(covid_euro_log, aes(x = date, y = log_confirmed)) + 
+  geom_point(aes(shape = covid_euro$`Country/Region`, color = covid_euro$`Country/Region`)) + 
+  labs(x="", y = "Log(Confirmed)", shape = "Country", 
+       title = "Confirmed COVID-19 Cases", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") +
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d")
+ggsave("log2.png")
+```
+
+
+Change y-axis scale.
+```{r warning=FALSE}
+p <- ggplot(covid_euro, aes(x = date, y = confirmed)) + 
+  geom_point(aes(shape = covid_euro$`Country/Region`, color = covid_euro$`Country/Region`)) + 
+  labs(x="", y = "Confirmed", shape = "Country", 
+       title = "Confirmed COVID-19 Cases", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") + 
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d") + scale_y_continuous(trans = 'log10')
+ggsave("log3.png")
+```
+
+## Europe to date
+```{r}
+europe <- c("France", "Germany", "Italy",  "Poland", "Spain",  "Switzerland", "United Kingdom")
+covid_euro_todate <- filter(covid_long, `Country/Region` %in% europe & `Province/State` %in% c(europe,NA), date > as.Date('2020-01-25'))
+covid_euro_todate
+```
+ Europe to date plot
+```{r}
+p <- ggplot(covid_euro_todate, aes(x = date, y = confirmed)) + 
+  geom_point(aes(shape = covid_euro_todate$`Country/Region`, color = covid_euro_todate$`Country/Region`)) + 
+  labs(x="", y = "Confirmed", shape = "Country", 
+       title = "Confirmed COVID-19 Cases", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") +
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d")
+```
+
+Change y-axis scale for to-date.
+```{r warning=FALSE}
+p <- ggplot(covid_euro_todate, aes(x = date, y = confirmed)) + 
+  geom_point(aes(shape = covid_euro_todate$`Country/Region`, color = covid_euro_todate$`Country/Region`)) + 
+  labs(x="", y = "Confirmed", shape = "Country", 
+       title = "Confirmed COVID-19 Cases", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") + 
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d") + scale_y_continuous(trans = 'log10')
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
