@@ -19,7 +19,6 @@ plot.title.position = "plot"
 covid <- readr::read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
 
 covid[covid$`3/18/20` == 162, '3/18/20'] <- 288 #replace wrong number
-#covid$`3/18/20`[111] <- 288
 ```
 
 ## Change format from data table to each line is a case.
