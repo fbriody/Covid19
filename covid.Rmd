@@ -6,7 +6,7 @@ output: html_document
 ---
 
 
-
+ 
 
 ```{r setup, include=FALSE}
 #install.packages("showtext")
@@ -84,7 +84,7 @@ p <- ggplot(covid_euro, aes(x = date, y = confirmed)) +
   geom_point(aes(shape = covid_euro$`Country/Region`, color = covid_euro$`Country/Region`)) + 
   labs(x="", y = "Confirmed", shape = "Country", 
        title = "Confirmed COVID-19 Cases", 
-       subtitle = "Selected European Countries", 
+       subtitle = "Selected European Countries through 3/9/2020", 
        caption = "Source: CDC and Johns Hopkins via GitHub") +
   scale_color_manual(name = " ",
                      labels = europe, 
@@ -93,7 +93,7 @@ p <- ggplot(covid_euro, aes(x = date, y = confirmed)) +
                      labels = europe, 
                      values = c(15, 16, 17, 3, 7, 8, 11))
 p + scale_x_date(date_labels = "%b%d")
-#ggsave("log1.png")
+ggsave("log1.png")
 ```
 
 Now, log the values.

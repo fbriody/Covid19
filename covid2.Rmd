@@ -1,0 +1,294 @@
+---
+title: "Covid2"
+author: "Briody"
+date: "3/25/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+#install.packages("showtext")
+#install.packages("plotly")
+knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(fig.width=8, fig.height=5) 
+library(tidyverse)
+library(plotly)
+cbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#0072B2", "#D55E00", "#CC79A7", "#999999")
+#"#F0E442" replaced yellow last with grey "#999999"
+theme_set(theme_minimal())
+#covid <- readr::read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
+#covid[covid$`3/18/20` == 162, '3/18/20'] <- 288 #replace wrong number
+```
+
+# Import choices
+## Johns Hopkins
+On March 23, Johns Hopkins reorganized their data files halting the usefulness of the original Covid file. Two new sources were promised. As of 3/24/20 only one time series has been delivered (confirmed and deaths by country), 
+
+time_series_covid19_confirmed_global.csv
+time_series_covid19_deaths_global.csv
+
+The county (and by summing, state) numbers starting 3/22/20 are available but in a daily update and not a single file.
+
+03-22-2020.csv	inside csse_covid_19_daily_reports
+
+```{r}
+covid2jh <- readr::read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
+
+covid2jh_long <- gather(covid2jh, date, confirmed, contains("/20"))
+covid2jh_long$date <- as.Date(covid2jh_long$date, "%m/%d/%y")
+```
+
+### Europe Test
+```{r}
+europe <- c("France", "Germany", "Italy",  "Poland", "Spain",  "Switzerland", "United Kingdom")
+#covid2jh_euro <- filter(covid2jh_long, `Country/Region` %in% europe & `Province/State` %in% c(europe,NA))
+covid2jh_euro <- filter(covid2jh_long, `Country/Region` %in% europe & `Province/State` %in% c(europe,NA), date > as.Date('2020-01-25'))
+covid2jh_euro
+```
+
+Plot (Regular Scale)
+
+```{r}
+p <- ggplot(covid2jh_euro, aes(x = date, y = confirmed)) + 
+  geom_point(aes(shape = covid2jh_euro$`Country/Region`, color = covid2jh_euro$`Country/Region`)) + 
+  labs(x="", y = "Confirmed", shape = "Country", 
+       title = "Confirmed COVID-19 Cases", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") +
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d")
+```
+
+Plot (Log Scale)
+```{r}
+p <- ggplot(covid2jh_euro, aes(x = date, y = confirmed)) + 
+  geom_point(aes(shape = covid2jh_euro$`Country/Region`, color = covid2jh_euro$`Country/Region`)) + 
+  labs(x="", y = "Confirmed", shape = "Country", 
+       title = "Confirmed COVID-19 Cases on a Log Scale", 
+       subtitle = "Selected European Countries", 
+       caption = "Source: CDC and Johns Hopkins via GitHub") + 
+  scale_color_manual(name = " ",
+                     labels = europe, 
+                     values = cbPalette) +
+  scale_shape_manual(name = " ",
+                     labels = europe, 
+                     values = c(15, 16, 17, 3, 7, 8, 11))
+p + scale_x_date(date_labels = "%b%d") + scale_y_continuous(trans = 'log10', labels = scales::comma)
+```
+
+
+## Corona Data Scraper SoSo - missing some days USA Data seems better for state and county totals
+Others report using Corona Data Scraper (https://coronadatascraper.com/#home) 
+
+csv (tidy format)
+https://coronadatascraper.com/timeseries-tidy.csv
+
+```{r}
+covid2cds <- readr::read_csv("https://coronadatascraper.com/timeseries-jhu.csv")
+problems(covid2cds)
+#view(covid2cds)
+```
+
+```{r}
+covid2cds_long <- gather(covid2cds, date, confirmed, contains("2020-"))
+covid2cds_long$date <- as.Date(covid2cds_long$date, "%Y-%m-%d")
+```
+
+### Cook County Plot
+```{r}
+(covid2cds_cook <- filter(covid2cds_long, county == "Cook County" & state == "IL"))
+p <- ggplot(covid2cds_cook, aes(x = date, y = confirmed)) + 
+  geom_point() + 
+  xlab("") + 
+  scale_x_date(date_labels = "%b%d") 
+p 
+```
+
+### State Totals
+```{r}
+# Warning: NT has city totals as well.
+# Must filter out state = NY and population > 10M
+us_only <- filter(covid2cds_long, country == "USA")
+(by_state <- group_by(us_only, state, date))
+(per_day <- summarise(by_state, state_total = sum(confirmed, na.rm = TRUE)))
+```
+
+#### Get Illinois
+```{r}
+(illinois <- filter(per_day, state == "IL"))
+p <- ggplot(illinois, aes(x = date, y = state_total)) + 
+  geom_point() + 
+  xlab("") + 
+  scale_x_date(date_labels = "%b%d") 
+p 
+```
+
+
+## USA Facts _ use this instead of coronadatascraper
+or usafacts (https://usafacts.org/visualizations/coronavirus-covid-19-spread-map/)
+
+from webpage
+https://static.usafacts.org/public/data/covid-19/covid_confirmed_usafacts.csv?_ga=2.195427820.1316833666.1585136621-915307346.1585136621
+
+https://static.usafacts.org/public/data/covid-19/covid_deaths_usafacts.csv?_ga=2.195427820.1316833666.1585136621-915307346.1585136621
+
+links in GitHub comment
+ use first below
+https://static.usafacts.org/public/data/covid-19/covid_confirmed_usafacts.csv
+https://static.usafacts.org/public/data/covid-19/covid_deaths_usafacts.csv?_ga=2.210670165.1998648927.1584971390-1836018421.1584457034
+
+```{r}
+#recreate illinois plot from above the add other states
+covid2usafacts <- readr::read_csv("https://static.usafacts.org/public/data/covid-19/covid_confirmed_usafacts.csv")
+problems(covid2usafacts)
+covid2usafacts_long <- gather(covid2usafacts, date, confirmed, contains("/20"))
+covid2usafacts_long$date <- as.Date(covid2usafacts_long$date, "%m/%d/%y")
+```
+
+### Cook County
+```{r}
+(cook <- filter(covid2usafacts_long, State == "IL" & `County Name` == "Cook County"))
+p <-  ggplot(cook, aes(x = date, y = confirmed)) + 
+  geom_point(color = "Blue") + 
+  xlab("") + 
+  scale_x_date(date_labels = "%b%d") + 
+  labs(x="", y = "Confirmed", 
+       title = "Confirmed COVID-19 Cases in Cook County", 
+       caption = "Source: USA Facts (usafacts.org)")
+p
+ggplotly(p)
+```
+ ### Cook County on Log Scale
+```{r}
+q <- p  + 
+  scale_y_continuous(trans = 'log10', labels = scales::comma) + 
+  labs(title = "Confirmed COVID-19 Cases in Cook County", 
+       subtitle = "Plotted on a Log Scale", 
+       caption = "Source: USA Facts (usafacts.org)")
+q
+ggplotly(q)
+```
+ 
+ 
+ ### Cook County Percent Increase
+```{r}
+cook2 <- cook %>% 
+  mutate(pct_change = (confirmed/lag(confirmed)-1) *100) %>% 
+  filter(date > "2020-03-01")
+cook2
+ggplot(cook2, aes(x = date, y = pct_change)) + 
+  geom_point( color = "Blue") + 
+  xlab("") + 
+  scale_x_date(date_labels = "%b%d") + 
+  labs(x="", y = "% Increase in Confirmed", 
+       title = "Confirmed COVID-19 Cases in Cook County",
+       subtitle = "Daily Percent Increase",
+       caption = "Source: USA Facts (usafacts.org)")
+```
+
+### Illinois
+```{r}
+illinois <- filter(covid2usafacts_long, State == "IL") %>% 
+  group_by(date) %>% 
+  summarise(total = sum(confirmed))
+illinois
+```
+
+create plot
+```{r}
+p <-  ggplot(illinois, aes(x = date, y = total)) + 
+  geom_point(color = "Blue") + 
+  xlab("") + 
+  scale_x_date(date_labels = "%b%d") + 
+  labs(x="", y = "Confirmed", 
+       title = "Confirmed COVID-19 Cases in Illinois County", 
+       caption = "Source: USA Facts (usafacts.org)")
+p
+ggplotly(p)
+```
+
+Illinois on log scale:
+```{r}
+```{r}
+q <- p  + 
+  scale_y_continuous(trans = 'log10', labels = scales::comma) + 
+  labs(title = "Confirmed COVID-19 Cases in Illinois", 
+       subtitle = "Plotted on a Log Scale", 
+       caption = "Source: USA Facts (usafacts.org)")
+q
+ggplotly(q)
+```
+
+Illinois Percent Increase
+```{r}
+illinois2 <- illinois %>% 
+  mutate(pct_change = (total/lag(total)-1) *100) %>% 
+  filter(date > "2020-03-01")
+illinois2
+ggplot(illinois2, aes(x = date, y = pct_change)) + 
+  geom_point( color = "Blue") + 
+  xlab("") + 
+  scale_x_date(date_labels = "%b%d") + 
+  labs(x="", y = "% Increase in Confirmed", 
+       title = "Confirmed COVID-19 Cases in Illinois",
+       subtitle = "Daily Percent Increase",
+       caption = "Source: USA Facts (usafacts.org)")
+```
+
+### Selected States
+Filtering states
+```{r}
+state_list <- c("IL", "WA", "NJ", "LA", "NY")
+states <- filter(covid2usafacts_long, State %in% state_list & date >= "2020-03-01") %>% 
+  group_by(State,date) %>% 
+  summarise(total = sum(confirmed))  %>% 
+  mutate(pct_change = (total/lag(total)-1) *100)
+states
+```
+
+Making the plot
+```{r}
+states_plot <- ggplot(states, aes(x= date, y = total, color = State)) +
+  geom_point() +
+  geom_path() +
+  scale_y_continuous(trans = "log10")
+
+states_plot
+```
+
+Find percent increase
+```{r}
+states_percent_data <- filter(states, date > "2020-03-10")
+
+states_percent_plot <- ggplot(states_percent_data, aes(x = date, y = pct_change, color = State)) +
+  geom_point() + 
+  geom_path()
+
+states_percent_plot
+ggplotly(states_percent_plot)
+```
+
+
+
+## JHU Manual download
+```{r}
+covid2_jh_manal <- readr::read_csv("covid.csv")
+problems(covid2_jh_manal)
+```
+### Illinois Starts March 22
+```{r}
+(illinois_manual <- filter(covid2_jh_manal, Province_State == "Illinois"))
+
+```
+
+
+### Cook County Starts March 22
+```{r}
+(cook_manual <- filter(covid2_jh_manal, Combined_Key == "Cook, Illinois, US"))
+```
+
